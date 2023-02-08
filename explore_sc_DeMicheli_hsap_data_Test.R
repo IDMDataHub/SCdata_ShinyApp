@@ -1,19 +1,26 @@
 #!/usr/bin/env R
 
-suppressPackageStartupMessages(library(tidyverse))
-suppressPackageStartupMessages(library(shinyjs))
-suppressPackageStartupMessages(library(shinycssloaders)) # Adds spinner icon to loading outputs.
-suppressPackageStartupMessages(library(shinydashboard))
-library(shiny)
-library(FactoMineR)
-#library(cerebroApp) #launchCerebro()
+### Check if necessary packages are installed: 
+pckg_need <- c("shiny","shinydashboard","tidyverse","shinyWidgets")
 
-##> TO ADD check-box with multiple choices 
-#remotes::install_github("dreamRs/shinyWidgets")
-library(shinyWidgets) 
+if ( any(! pckg_need %in% installed.packages()) ) {
+  tobeinst <- pckg_need[which(! pckg_need %in% installed.packages() )]
+  
+  for (pkg in tobeinst){
+    install.packages(pkg);
+    remotes::install_github("dreamRs/shinyWidgets")
+  }
+}
 
-### Read DeMicheli-human data : 
 
+## If all installed, Load :
+if ( all(pckg_need %in% installed.packages()) ){
+  library(shiny)
+  suppressPackageStartupMessages(library(shinydashboard))
+  suppressPackageStartupMessages(library(tidyverse))
+  library(shinyWidgets)
+  
+}
 
 ## User Interface: controls the layout and appearance of your app.
 my_ui <- fluidPage(
@@ -45,14 +52,16 @@ my_ui <- fluidPage(
                   h4("~~Results~~"),
                   br(),
                   textOutput("msg"),
-                  h5("The histogram with the gene expression in the cell-types you chose: "),
+                  h5("> The histogram with the gene expression in the cell-types you chose: "),
                   plotOutput(outputId="histogram"),
                   downloadButton("savePlot", label="Save image"),
-                  br() ,
+                  br(),
                   #> show data.frame for the chosen gene
+                  h5("> The table with the gene expression is as follows: "),
                   tableOutput("my_table"),
                   downloadButton("downloadData", "Download Table"),
-                  br()
+                  br(),
+                  h5("--------------------------------------------------------")
                 )
   )
 )
@@ -60,31 +69,28 @@ my_ui <- fluidPage(
 
 myserver <- function(input, output,session) {
   
-  demicheli_mm <- readRDS("single_cell_DB/SC_DeMicheli_all_Genes_human.rds")
+  demicheli_hs <- readRDS("single_cell_DB/SC_DeMicheli_all_Genes_human.rds")
   
   observeEvent(input$genename, { 
     
-    if (input$genename  %in%  demicheli_mm$GeneName) {
+    if (input$genename  %in%  demicheli_hs$GeneName) {
       
-        tab2plot <- demicheli_mm %>%
+        tab2plot <- demicheli_hs %>%
                     filter(GeneName == input$genename ) %>%
                     filter(CellType %in% input$cell_types )
-        
-        
-        #output$histogram <- renderPlot({
-          
+       
           p <- ggplot(tab2plot , aes(x=PatientID, y=MeanExpr, fill=PatientID)) +
             geom_bar(stat="identity", width=0.9, position="dodge" ) +
             geom_errorbar(aes(ymin=MeanExpr-SEM, ymax=MeanExpr+SEM, color=PatientID),
                           position="dodge", width=0.9, size=0.3 )
-          p2 <- p + 
-                facet_wrap(~ CellType) + 
-                ggtitle(input$genename) + 
-                theme(axis.text.x = element_text(angle = 45,vjust=0.5),
-                      axis.title.x = element_text(vjust= -2)) 
-                     # distance of "PatientID" title from graph
-        plotOutput <- p2
-        #})
+          
+          p.theme <- p + 
+                  facet_wrap(~ CellType) + 
+                  ggtitle(input$genename) + 
+                  theme(axis.text.x = element_text(angle = 45,vjust=0.5),
+                        axis.title.x = element_text(vjust= -2)) 
+        plotOutput <- p.theme
+       
         
         output$histogram <- renderPlot({ plotOutput })
         

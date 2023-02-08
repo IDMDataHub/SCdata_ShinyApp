@@ -1,16 +1,26 @@
 #!/usr/bin/env R
 
-suppressPackageStartupMessages(library(tidyverse))
-suppressPackageStartupMessages(library(shinyjs))
-suppressPackageStartupMessages(library(shinycssloaders)) # Adds spinner icon to loading outputs.
-suppressPackageStartupMessages(library(shinydashboard))
-library(shiny)
-library(FactoMineR)
-#library(cerebroApp) #launchCerebro()
+### Check if necessary packages are installed: 
+pckg_need <- c("shiny","shinydashboard","tidyverse","shinyWidgets")
 
-##> TO ADD check-box with multiple choices
-#remotes::install_github("dreamRs/shinyWidgets")
-library(shinyWidgets)
+if ( any(! pckg_need %in% installed.packages()) ) {
+  tobeinst <- pckg_need[which(! pckg_need %in% installed.packages() )]
+  
+  for (pkg in tobeinst){
+    install.packages(pkg);
+    remotes::install_github("dreamRs/shinyWidgets")
+  }
+}
+
+
+## If all installed, Load :
+if ( all(pckg_need %in% installed.packages()) ){
+  library(shiny)
+  suppressPackageStartupMessages(library(shinydashboard))
+  suppressPackageStartupMessages(library(tidyverse))
+  library(shinyWidgets)
+  
+}
 
 ### Read Oprescu-mouse data :
 
@@ -20,7 +30,7 @@ my_ui <- fluidPage(
   titlePanel("Explore Single-Cell Datasets"),
   sidebarLayout(position="left",
                 sidebarPanel(
-                  h4("Oprescu et al.,single-cell data on mouse (journal.. )."),
+                  h4("Oprescu et al.,single-cell data on mouse (iScience 23,100993,2020)."),
                   br(),
                   ## Multiple choice of cell-types of which to see expression
                   pickerInput(inputId="cell_types",
