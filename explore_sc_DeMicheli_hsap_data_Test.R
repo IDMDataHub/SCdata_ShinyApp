@@ -39,56 +39,86 @@ my_ui <- fluidPage(
                               multiple = TRUE ),
                   br(),
                   ## Gene by User Input 
-                  textInput(inputId="genename",label="Gene Symbol") #,
-                  #actionButton("run", label="Run Analysis")
+                  textInput(inputId="genename",label="Gene Symbol")
                 ),
                 mainPanel(
                   h4("~~Results~~"),
                   br(),
                   textOutput("msg"),
                   h5("The histogram with the gene expression in the cell-types you chose: "),
-                  plotOutput(outputId="histogram") #,
-                  #actionButton("save_histo",label="Save image")
+                  plotOutput(outputId="histogram"),
+                  downloadButton("savePlot", label="Save image"),
+                  br() ,
+                  #> show data.frame for the chosen gene
+                  tableOutput("my_table"),
+                  downloadButton("downloadData", "Download Table"),
+                  br()
                 )
   )
 )
-
 
 
 myserver <- function(input, output,session) {
   
   demicheli_mm <- readRDS("single_cell_DB/SC_DeMicheli_all_Genes_human.rds")
   
-  observeEvent(input$genename,{ 
+  observeEvent(input$genename, { 
     
-    if (input$genename %in%  demicheli_mm$GeneName) {
+    if (input$genename  %in%  demicheli_mm$GeneName) {
       
-      tab2plot <- demicheli_mm %>%
-        filter(GeneName == input$genename ) %>%
-        filter(CellType %in% input$cell_types )
-      
-      output$histogram <- renderPlot({
+        tab2plot <- demicheli_mm %>%
+                    filter(GeneName == input$genename ) %>%
+                    filter(CellType %in% input$cell_types )
         
-        p <- ggplot(tab2plot , aes(x=PatientID, y=MeanExpr, fill=PatientID)) +
-          geom_bar(stat="identity", width=0.9, position="dodge" ) +
-          geom_errorbar(aes(ymin=MeanExpr-SEM, ymax=MeanExpr+SEM,color=PatientID),
-                        position="dodge", width=0.9, size=0.3 )
-        p2 <- p + facet_wrap(~ CellType) + ggtitle(input$genename) + theme_minimal()
-        p2
-      })
-      
-      ## Capture the Save Image Button :
-      #observeEvent(input$save_histo, { ggsave("Histogram.png",output$histogram)  })
-      
-      msg <- print("Bingo! The Gene exists in the dataset!")
-      
+        
+        #output$histogram <- renderPlot({
+          
+          p <- ggplot(tab2plot , aes(x=PatientID, y=MeanExpr, fill=PatientID)) +
+            geom_bar(stat="identity", width=0.9, position="dodge" ) +
+            geom_errorbar(aes(ymin=MeanExpr-SEM, ymax=MeanExpr+SEM, color=PatientID),
+                          position="dodge", width=0.9, size=0.3 )
+          p2 <- p + 
+                facet_wrap(~ CellType) + 
+                ggtitle(input$genename) + 
+                theme(axis.text.x = element_text(angle = 45,vjust=0.5),
+                      axis.title.x = element_text(vjust= -2)) 
+                     # distance of "PatientID" title from graph
+        plotOutput <- p2
+        #})
+        
+        output$histogram <- renderPlot({ plotOutput })
+        
+        ## Capture the Save Image Button :
+        output$savePlot <- downloadHandler(filename = "my_Gene_x_CellTypes.png",
+                                           content = function(file){
+                                             ggsave(file, plot=plotOutput )
+                                           })
+        
+        msg <- print("Bingo! The Gene exists in the dataset!")
+        
+        
+        ## Show & Download Table 
+        mytable <- reactive({ tab2plot  })
+        output$my_table <- renderTable({mytable() })
+        
+        ## Download Gene-Table
+        output$downloadData <- downloadHandler(
+                              filename = "Gene_x_Cell_types_table.tsv",
+                              content = function(file) {
+                                  write_delim(mytable(), file, col_names=T,delim="\t")
+                                })
+        
+        
+        
     } else {
       msg <- print("Oops ! Error! The gene you chose is not present in the dataset!Please verify the name or try an alias.")
     }
     output$msg  <- renderText({ msg })
-  })
   
-}                       
+  })
+
+}
+
 
 # Run the app ----
 shinyApp(ui = my_ui, server = myserver)
